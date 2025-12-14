@@ -556,3 +556,53 @@
           transform: translateY(0);
           pointer-events: auto;
         }
+
+        /* Card interactive affordances */
+        .pm-card__author,
+        .pm-card__favorite {
+          cursor: pointer;
+        }
+        .pm-card__author:focus-visible,
+        .pm-card__favorite:focus-visible {
+          outline: 2px solid #3b82f6;
+          outline-offset: 2px;
+        }
+        .pm-card__favorite.is-favorited i,
+        .pm-card__meta-icon.is-favorited i {
+          color: #f59e0b;
+        }
+
+        .me-card__follow-row {
+          margin: 8px 0 12px;
+        }
+        .me-card__follow-btn {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          min-height: 36px;
+          padding: 0 12px;
+          background: #3797ef;
+          color: #ffffff;
+          border: 1px solid #3797ef;
+          border-radius: 4px;
+          font-size: 13px;
+          font-weight: 600;
+          line-height: 1.2;
+          cursor: pointer;
+          transition: transform 120ms ease, box-shadow 150ms ease, opacity 120ms ease;
+        }
+        .me-card__follow-btn:hover {
+          box-shadow: 0 6px 16px rgba(55, 151, 239, 0.25);
+          transform: translateY(-1px);
+        }
+        .me-card__follow-btn:active {
+          transform: translateY(0);
+          box-shadow: 0 3px 10px rgba(55, 151, 239, 0.18);
+        }
+        .me-card__follow-btn.is-following {
+          background: #0f172a;
+          border-color: #0f172a;
+          color: #ffffff;
+        }

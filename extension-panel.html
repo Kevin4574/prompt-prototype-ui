@@ -1882,6 +1882,9 @@
                                         </button>
                                     </div>
                                     <p class="me-card__info">Joined Aug 2024 · Pro Plan</p>
+                                    <div class="me-card__follow-row">
+                                        <button type="button" class="me-card__follow-btn" data-action="toggle-follow" hidden>关注</button>
+                                    </div>
                                     
                                     <div class="me-card__stats">
                                         <div class="me-stat-item">
@@ -1905,10 +1908,10 @@
                                 <div class="me-section-header">
                                     <div class="me-section-badge">
                                         <div class="me-section-icon">
-                                            <i class="fas fa-bookmark"></i>
+                                            <i class="fas fa-bookmark" data-collection-icon></i>
                                         </div>
                                         <div class="me-section-text">
-                                            <span class="me-section-label">我的收藏</span>
+                                            <span class="me-section-label" data-collection-label>我的收藏</span>
                                         </div>
                                     </div>
                                 </div>
@@ -2688,7 +2691,7 @@
                 }
             }
 
-            // 收藏（Market 卡片）点击后增加收藏计数
+            // 收藏：支持切换收藏/取消收藏，底部收藏区和右上角收藏按钮共享状态
             const parseFavoriteCount = (text = '') => {
                 const raw = text.trim().toUpperCase();
                 if (!raw) return 0;
@@ -2710,18 +2713,160 @@
                 return value.toString();
             };
 
+            const setFavoriteVisual = (el, active) => {
+                if (!el) return;
+                el.classList.toggle('is-favorited', active);
+                const icon = el.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-solid', active);
+                    icon.classList.toggle('fa-regular', !active);
+                }
+            };
+
+            const toggleFavoriteForCard = (card) => {
+                if (!card) return;
+                const countEl = card.querySelector('.pm-card__favorite-count');
+                const wasFavorited = card.dataset.favorited === '1';
+                const currentCount = parseFavoriteCount(countEl?.textContent || '0');
+                const nextFavorited = !wasFavorited;
+                const nextCount = Math.max(0, currentCount + (nextFavorited ? 1 : -1));
+                if (countEl) {
+                    countEl.textContent = formatFavoriteCount(nextCount);
+                }
+                card.dataset.favorited = nextFavorited ? '1' : '0';
+                setFavoriteVisual(card.querySelector('[data-action="favorite-card"]'), nextFavorited);
+                setFavoriteVisual(card.querySelector('.pm-card__favorite'), nextFavorited);
+            };
+
+            // 右上角收藏按钮
             const favoriteButtons = document.querySelectorAll('[data-action="favorite-card"]');
             favoriteButtons.forEach((btn) => {
-                btn.addEventListener('click', () => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     const card = btn.closest('.pm-card');
-                    if (!card) return;
-                    const countEl = card.querySelector('.pm-card__favorite-count');
-                    if (!countEl) return;
-                    const next = parseFavoriteCount(countEl.textContent || '');
-                    countEl.textContent = formatFavoriteCount(next + 1);
-                    btn.classList.add('is-favorited');
+                    toggleFavoriteForCard(card);
                 });
             });
+
+            // 卡片底部收藏区域
+            const favoriteFooters = document.querySelectorAll('.pm-card__favorite');
+            favoriteFooters.forEach((footer) => {
+                footer.setAttribute('role', 'button');
+                footer.setAttribute('tabindex', '0');
+                footer.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const card = footer.closest('.pm-card');
+                    toggleFavoriteForCard(card);
+                });
+                footer.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        const card = footer.closest('.pm-card');
+                        toggleFavoriteForCard(card);
+                    }
+                });
+            });
+
+            // 作者区域可点击：跳转到“我的”视图并填充作者信息（模拟主页）
+            const meView = document.querySelector('[data-panel-view="me"]');
+            const meName = meView?.querySelector('[data-username-display]');
+            const meNameInput = meView?.querySelector('[data-username-input]');
+            const meAvatar = meView?.querySelector('.me-card__avatar-img');
+            const meFollowBtn = meView?.querySelector('[data-action="toggle-follow"]');
+            const collectionLabelEl = meView?.querySelector('[data-collection-label]');
+            const collectionIconEl = meView?.querySelector('[data-collection-icon]');
+            const selfProfile = {
+                name: meName?.textContent?.trim() || 'User',
+                avatarSrc: ''
+            };
+            const getInitials = (name = '') => {
+                const cleaned = name.trim();
+                if (!cleaned) return 'PM';
+                const parts = cleaned.split(/\s+/).filter(Boolean);
+                if (!parts.length) return 'PM';
+                if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+                return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+            };
+            const setProfileMode = ({ name, avatarSrc = '', isSelf }) => {
+                const displayName = name || selfProfile.name;
+                if (meName) {
+                    meName.textContent = displayName;
+                }
+                if (meNameInput) {
+                    meNameInput.value = displayName;
+                }
+                if (meAvatar) {
+                    meAvatar.textContent = getInitials(displayName);
+                    if (avatarSrc) {
+                        meAvatar.style.backgroundImage = `url(${avatarSrc})`;
+                        meAvatar.style.backgroundSize = 'cover';
+                        meAvatar.style.backgroundPosition = 'center';
+                    } else {
+                        meAvatar.style.backgroundImage = '';
+                    }
+                }
+                if (collectionLabelEl) {
+                    collectionLabelEl.textContent = isSelf ? '我的收藏' : `${displayName} 的库`;
+                }
+                if (collectionIconEl) {
+                    collectionIconEl.classList.remove('fa-bookmark', 'fa-folder-open');
+                    collectionIconEl.classList.add(isSelf ? 'fa-bookmark' : 'fa-folder-open');
+                }
+                if (meFollowBtn) {
+                    if (isSelf) {
+                        meFollowBtn.hidden = true;
+                        meFollowBtn.dataset.following = '0';
+                        meFollowBtn.classList.remove('is-following');
+                        meFollowBtn.textContent = '关注';
+                    } else {
+                        meFollowBtn.hidden = false;
+                        meFollowBtn.dataset.following = '0';
+                        meFollowBtn.classList.remove('is-following');
+                        meFollowBtn.textContent = '关注';
+                    }
+                }
+            };
+            const goAuthorProfile = (authorEl) => {
+                if (!authorEl) return;
+                const card = authorEl.closest('.pm-card');
+                const name = authorEl.querySelector('.pm-card__author-name')?.textContent?.trim() || 'User';
+                const avatarSrc = authorEl.querySelector('.pm-card__avatar')?.getAttribute('src') || '';
+                setView('me');
+                if (!body.classList.contains('panel-open')) {
+                    setOpen(true);
+                }
+                setProfileMode({ name, avatarSrc, isSelf: false });
+                // 预留：如有作者主页链接可放在 data-author-profile 上打开新标签
+                const profileUrl = authorEl.dataset.authorProfile;
+                if (profileUrl) {
+                    window.open(profileUrl, '_blank', 'noopener,noreferrer');
+                }
+            };
+            const authorBlocks = document.querySelectorAll('.pm-card__author');
+            authorBlocks.forEach((author) => {
+                author.setAttribute('role', 'button');
+                author.setAttribute('tabindex', '0');
+                author.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    goAuthorProfile(author);
+                });
+                author.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        goAuthorProfile(author);
+                    }
+                });
+            });
+
+            if (meFollowBtn) {
+                meFollowBtn.addEventListener('click', () => {
+                    const following = meFollowBtn.dataset.following === '1';
+                    const next = !following;
+                    meFollowBtn.dataset.following = next ? '1' : '0';
+                    meFollowBtn.classList.toggle('is-following', next);
+                    meFollowBtn.textContent = next ? '已关注' : '关注';
+                });
+            }
 
             // Find 视图：过滤 + 排序（Latest / Popular）
             const findView = document.querySelector('[data-panel-view="find"]');
@@ -2798,6 +2943,9 @@
             }
 
             // 简单下拉（分类）交互
+            // 初始化个人视图为“自己”
+            setProfileMode({ name: selfProfile.name, avatarSrc: selfProfile.avatarSrc, isSelf: true });
+
             const dropdowns = document.querySelectorAll('.pm-dropdown');
             dropdowns.forEach((dropdown) => {
                 const trigger = dropdown.querySelector('[data-dropdown-trigger]');
@@ -2892,6 +3040,9 @@
                     const target = btn.dataset.viewTarget;
                     if (!target) {
                         return;
+                    }
+                    if (target === 'me' && btn.classList.contains('pm-tab')) {
+                        setProfileMode({ name: selfProfile.name, avatarSrc: selfProfile.avatarSrc, isSelf: true });
                     }
                     if (target === 'edit-copy') {
                         const fromHome = !!btn.closest('[data-panel-view="home"]');
